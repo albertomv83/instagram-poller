@@ -29,4 +29,61 @@ public class Comment {
 
     String fromProfilePicture;
 
+	public String getID() {
+		return ID;
+	}
+
+	public void setID(String iD) {
+		ID = iD;
+	}
+
+	public String getText() {
+		return text;
+	}
+
+	public void setText(String text) {
+		this.text = text;
+	}
+
+	public String getCreatedTime() {
+		return createdTime;
+	}
+
+	public void setCreatedTime(String createdTime) {
+		this.createdTime = createdTime;
+	}
+
+	public String getFromUsername() {
+		return fromUsername;
+	}
+
+	public void setFromUsername(String fromUsername) {
+		this.fromUsername = fromUsername;
+	}
+
+	public String getFromFullName() {
+		return fromFullName;
+	}
+
+	public void setFromFullName(String fromFullName) {
+		this.fromFullName = fromFullName;
+	}
+
+	public String getFromID() {
+		return fromID;
+	}
+
+	public void setFromID(String fromID) {
+		this.fromID = fromID;
+	}
+
+	public String getFromProfilePicture() {
+		return fromProfilePicture;
+	}
+
+	public void setFromProfilePicture(String fromProfilePicture) {
+		this.fromProfilePicture = fromProfilePicture;
+	}
+
+    
 }
