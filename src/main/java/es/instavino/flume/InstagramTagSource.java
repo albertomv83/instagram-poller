@@ -98,6 +98,9 @@ Configurable, PollableSource {
     private FlattenedImageInstagram flattenMediaFeedData(
             final MediaFeedData d) {
         FlattenedImageInstagram f = new FlattenedImageInstagram();
+        
+        //caption
+       
 
         return f;
     }
