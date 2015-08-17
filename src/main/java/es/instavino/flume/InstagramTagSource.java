@@ -21,11 +21,15 @@ import java.util.List;
 import org.apache.flume.Context;
 import org.apache.flume.Event;
 import org.apache.flume.EventDeliveryException;
+import org.apache.flume.FlumeException;
 import org.apache.flume.PollableSource;
+import org.apache.flume.channel.ChannelProcessor;
 import org.apache.flume.conf.Configurable;
 import org.apache.flume.event.JSONEvent;
 import org.apache.flume.source.AbstractSource;
+import org.apache.log4j.Logger;
 import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.jinstagram.Instagram;
@@ -44,6 +48,8 @@ import es.instavino.flume.model.Like;
  */
 public class InstagramTagSource extends AbstractSource implements Configurable, PollableSource {
 
+	final static Logger logger = Logger.getLogger(InstagramTagSource.class);
+	
 	private String tagProp;
 
 	private String accessTokenProp;
@@ -71,16 +77,44 @@ public class InstagramTagSource extends AbstractSource implements Configurable, 
 					event = createEvent(d);
 					getChannelProcessor().processEvent(event);
 				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					logger.error("Error while processing event: "+e.getMessage());
 				}
 
 			});
 		} catch (InstagramException | InterruptedException e) {
-			throw new EventDeliveryException(e);
+			status = Status.BACKOFF;
+			logger.error("Backing off: "+e.getMessage());
 		}
 
 		return status;
+
+	}
+	
+
+
+	@Override
+	public void start() {
+		// Initialize the connection to Instagram
+		Token token = new Token(accessTokenProp, null);
+		instagram = new Instagram(token);
+		try {
+			String id = instagram.getRecentMediaTags(tagProp).getPagination().getMinTagId();
+			endpoint = new HashtagEndpoint(instagram, tagProp, id);
+		} catch (InstagramException e) {
+			throw new FlumeException(e);
+		}
+
+	}
+
+	/**
+	 * @see org.apache.flume.conf.Configurable#configure(org.apache.flume.Context)
+	 */
+	@Override
+	public void configure(final Context context) {
+		String tag = context.getString("tag");
+		tagProp = tag;
+		String accessToken = context.getString("accessToken", "2097810379.1fb234f.9d58a854b30e4e0ba82f421ece38f316");
+		accessTokenProp = accessToken;
 
 	}
 
@@ -108,6 +142,7 @@ public class InstagramTagSource extends AbstractSource implements Configurable, 
 		// caption
 		if (d.getCaption() != null) {
 			f.setCaptionText(d.getCaption().getText());
+			logger.debug(f.getCaptionText());
 			f.setCaptionCreatedTime(d.getCaption().getCreatedTime());
 			f.setCaptionFromID(Long.toString(d.getCaption().getFrom().getId()));
 			f.setCaptionFromUsername(d.getCaption().getFrom().getUsername());
@@ -147,7 +182,7 @@ public class InstagramTagSource extends AbstractSource implements Configurable, 
 						baos.write(byteChunk, 0, n);
 					}
 				} catch (IOException e) {
-					System.err.printf("Failed while reading bytes from %s: %s", url.toExternalForm(), e.getMessage());
+					logger.error("Failed while reading bytes from "+url.toExternalForm()+": "+e.getMessage());
 				} finally {
 					if (is != null) {
 						is.close();
@@ -199,30 +234,32 @@ public class InstagramTagSource extends AbstractSource implements Configurable, 
 		return f;
 	}
 
-	@Override
-	public void start() {
-		// Initialize the connection to Instagram
-		Token token = new Token(accessTokenProp, null);
-		instagram = new Instagram(token);
-		try {
-			String id = instagram.getRecentMediaTags(tagProp).getPagination().getMinTagId();
-			endpoint = new HashtagEndpoint(instagram, tagProp, id);
-		} catch (InstagramException e) {
-			throw new Error(e);
+	public static void main(String... args) throws EventDeliveryException {
+		final ObjectMapper om = new ObjectMapper();
+		InstagramTagSource its = new InstagramTagSource() {
+			public ChannelProcessor getChannelProcessor() {
+				return new ChannelProcessor(null) {
+					public void processEvent(Event e) {
+						try {
+							FlattenedImageInstagram f = om.readValue(e.getBody(), FlattenedImageInstagram.class);
+							logger.debug(f.getId()+" ::: "+f.getCaptionText());
+						} catch (IOException e1) {
+							e1.printStackTrace();
+						}
+
+					}
+				};
+			}
+		};
+		Context c = new Context();
+		c.put("tag", "vino");
+		c.put("accessToken", "2097810379.1fb234f.9d58a854b30e4e0ba82f421ece38f316");
+		its.configure(c);
+		its.start();
+		Status s = its.process();
+		while (s == s.READY) {
+			s = its.process();
 		}
-
-	}
-
-	/**
-	 * @see org.apache.flume.conf.Configurable#configure(org.apache.flume.Context)
-	 */
-	@Override
-	public void configure(final Context context) {
-		String tag = context.getString("tag");
-		tagProp = tag;
-		String accessToken = context.getString("accessToken", "2097810379.1fb234f.9d58a854b30e4e0ba82f421ece38f316");
-		accessTokenProp = accessToken;
-
 	}
 
 }

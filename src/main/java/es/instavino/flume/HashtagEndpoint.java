@@ -50,7 +50,7 @@ public class HashtagEndpoint {
             dataList.addAll(paginateFeed(maxTagId));
         }
         Collections.reverse(dataList);
-        // dataList.removeIf(d -> d.getId().compareTo(minTagId) < 0);
+        //dataList.removeIf(d -> d.getId().compareTo(minTagId) < 0);
 
         minTagId = feed.getPagination().getMinTagId();
         return dataList;
